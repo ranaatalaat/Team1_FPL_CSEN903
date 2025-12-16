@@ -1335,7 +1335,7 @@ class ModelComparator:
 def main():
     st.set_page_config(page_title="FPL Fantasy Trivia - Enhanced", page_icon="🎯", layout="wide")
     
-    st.title("FPL Fantasy Trivia")
+    st.title("FPL Trivia expert")
 
     
     # Season info banner
