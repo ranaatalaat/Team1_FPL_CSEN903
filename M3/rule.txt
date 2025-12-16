@@ -1,0 +1,57 @@
+// Find players with 2 positions where one is Defender (DEF)
+MATCH (p:Player)-[:PLAYS_AS]->(pos:Position)
+WITH p, COLLECT(DISTINCT pos.name) as positions
+WHERE size(positions) = 2 AND "DEF" IN positions
+
+// For each player, get all their fixtures
+WITH p
+MATCH (p)-[r:PLAYED_IN]->(f:Fixture)
+
+// Calculate what the score would be if player was a Defender
+WITH p, f, r,
+  // General scoring (applies to all positions)
+  (r.assists * 3) + 
+  (CASE 
+    WHEN r.minutes > 0 AND r.minutes < 60 THEN 1 
+    WHEN r.minutes >= 60 THEN 2 
+    ELSE 0 
+  END) + 
+  (r.penalties_missed * -2) + 
+  (r.own_goals * -2) + 
+  (r.yellow_cards * -1) + 
+  (r.red_cards * -3) + 
+  r.bonus as general_points,
+  
+  // Defender scoring
+  (r.goals_scored * 6) + // DEF: 6 points per goal
+  (CASE 
+    WHEN r.clean_sheets = 1 AND r.minutes >= 60 THEN 4 
+    ELSE 0 
+  END) + // DEF: 4 points for clean sheet if played 60+ min
+  (toInteger(floor(toFloat(r.goals_conceded) / 2.0)) * -1) as def_specific_points
+
+// Total defender score
+WITH p, f, r, 
+  toFloat(general_points + def_specific_points) as def_score, 
+  r.total_points as actual_points
+
+// Collect ALL fixtures with their def_score comparison
+WITH p, 
+  COLLECT({
+    def_score: def_score,
+    season: f.season,
+    fixture_number: f.fixture_number,
+    matches_def: (def_score = actual_points),
+    total_points: actual_points
+  }) as all_fixtures
+
+// Filter to only fixtures that don't match defender scoring
+WITH p,
+  [fixture IN all_fixtures WHERE NOT fixture.matches_def] as not_def_fixtures,
+  size(all_fixtures) as total_fixtures
+
+RETURN p.player_name as player, 
+  size(not_def_fixtures) as not_def_fixtures_count, 
+  total_fixtures, 
+  not_def_fixtures as fixture_details
+ORDER BY player

@@ -1,0 +1,27 @@
+//Query 1. How many gameweeks were played during the seasons provided?
+MATCH (gw:Gameweek)
+RETURN count(gw) as total_gameweeks
+
+//Query 2. How many player nodes were created (note: the same player can have different nodes representing him in each season)
+MATCH (p:Player)
+RETURN count(p) as total_players
+
+//Query 3. What teams were qualified for the 2021-22 season but not for the 2022-23 season?
+MATCH (s1:Season {season_name: "2021-22"})-[:HAS_GW]->(gw1:Gameweek)-[:HAS_FIXTURE]->(f1:Fixture)
+MATCH (f1)-[:HAS_HOME_TEAM|HAS_AWAY_TEAM]->(t:Team)
+WITH COLLECT(DISTINCT t.name) as teams_2021_22
+MATCH (s2:Season {season_name: "2022-23"})-[:HAS_GW]->(gw2:Gameweek)-[:HAS_FIXTURE]->(f2:Fixture)
+MATCH (f2)-[:HAS_HOME_TEAM|HAS_AWAY_TEAM]->(t2:Team)
+WITH teams_2021_22, COLLECT(DISTINCT t2.name) as teams_2022_23
+RETURN [team IN teams_2021_22 WHERE NOT team IN teams_2022_23] as teams
+
+//Query 4. What was the biggest total_point value scored in one gameweek in the 2022-23 season and by who was it scored?
+MATCH (p:Player)-[r:PLAYED_IN]->(f:Fixture {season: "2022-23"})
+RETURN r.total_points as points, p.player_name as player
+ORDER BY r.total_points DESC
+LIMIT 1
+
+//Query 5. How many matches did player Mohamed Elneny actually participate in?
+MATCH (p:Player)-[r:PLAYED_IN]->(f:Fixture)
+WHERE (toLower(p.player_name) CONTAINS "elneny") AND r.minutes > 0
+RETURN count(DISTINCT f) as matches_participated
